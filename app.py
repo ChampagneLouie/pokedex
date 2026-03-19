@@ -764,6 +764,8 @@ HOME_HTML = """<!DOCTYPE html>
 <div class="search-wrap">
   <input id="search" type="text" placeholder="Enter a Pokemon name..." onkeydown="if(event.key==='Enter')lookup()"/>
   <button onclick="lookup()">GO</button>
+  <button onclick="random()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,215,0,0.2);box-shadow:none;">🎲</button>
+  <button onclick="compare()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,215,0,0.2);box-shadow:none;font-family:'Rajdhani',sans-serif;font-size:0.9em;letter-spacing:1px;">VS</button>
 </div>
 <div class="card" id="card"><div id="content"></div></div>
 <div class="api-box">
