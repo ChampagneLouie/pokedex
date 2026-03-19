@@ -334,6 +334,8 @@ def index():
 <div class="search-wrap">
   <input id="search" type="text" placeholder="Enter a Pokemon name..." onkeydown="if(event.key==='Enter')lookup()"/>
   <button onclick="lookup()">GO</button>
+  <button onclick="random()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,215,0,0.2);box-shadow:none;">🎲</button>
+  <button onclick="compare()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,215,0,0.2);box-shadow:none;font-family:'Rajdhani',sans-serif;font-size:0.9em;letter-spacing:1px;">VS</button>
 </div>
 
 <div class="card" id="card">
@@ -816,6 +818,109 @@ HOME_HTML = """<!DOCTYPE html>
     });
   }
   function toggleShiny(n,s){const img=document.getElementById('sprite');showingShiny=!showingShiny;img.src=showingShiny?s:n;}
+async function random() {
+  document.getElementById('search').value = '';
+  showingShiny = false;
+  const card    = document.getElementById('card');
+  const content = document.getElementById('content');
+  card.classList.add('visible');
+  content.innerHTML = '<div class="message">Finding a random Pokemon...</div>';
+  try {
+    const res  = await fetch('/api/random');
+    const data = await res.json();
+    document.getElementById('search').value = data.name;
+    renderPokemon(data);
+  } catch(e) {
+    content.innerHTML = '<div class="message error">Connection error.</div>';
+  }
+}
+
+async function compare() {
+  const name = document.getElementById('search').value.trim();
+  if (!name) { alert('Enter a Pokemon name first then click Compare!'); return; }
+  const rival = prompt('Enter a Pokemon to compare against:');
+  if (!rival) return;
+  const card    = document.getElementById('card');
+  const content = document.getElementById('content');
+  card.classList.add('visible');
+  content.innerHTML = '<div class="message">Loading comparison...</div>';
+  try {
+    const res  = await fetch(`/api/compare/${name}/${rival}`);
+    const data = await res.json();
+    if (data.error) { content.innerHTML = `<div class="message error">❌ ${data.error}</div>`; return; }
+    renderComparison(data.pokemon1, data.pokemon2);
+  } catch(e) {
+    content.innerHTML = '<div class="message error">Connection error.</div>';
+  }
+}
+
+function renderComparison(p1, p2) {
+  const STAT_COLORS={hp:'#e84e0f',attack:'#f9a825',defense:'#1976d2',speed:'#388e3c',sp_atk:'#c2185b',sp_def:'#4527a0'};
+  const STAT_LABELS={hp:'HP',attack:'ATK',defense:'DEF',speed:'SPD',sp_atk:'SP.ATK',sp_def:'SP.DEF'};
+
+  const types1 = p1.types.map(t => `<span class="type-badge type-${t}">${t}</span>`).join('');
+  const types2 = p2.types.map(t => `<span class="type-badge type-${t}">${t}</span>`).join('');
+
+  const stats = ['hp','attack','defense','sp_atk','sp_def','speed'].map(key => {
+    const v1   = p1[key];
+    const v2   = p2[key];
+    const pct1 = Math.min(100, Math.round(v1/255*100));
+    const pct2 = Math.min(100, Math.round(v2/255*100));
+    const winner = v1 > v2 ? 'p1' : v2 > v1 ? 'p2' : 'tie';
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:0.8em;color:rgba(255,255,255,0.4);margin-bottom:4px;">
+          <span style="color:${winner==='p1'?'#ffd700':'rgba(255,255,255,0.4)'};font-weight:${winner==='p1'?'700':'400'}">${v1}</span>
+          <span style="letter-spacing:2px;text-transform:uppercase;">${STAT_LABELS[key]}</span>
+          <span style="color:${winner==='p2'?'#ffd700':'rgba(255,255,255,0.4)'};font-weight:${winner==='p2'?'700':'400'}">${v2}</span>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:8px;overflow:hidden;transform:scaleX(-1)">
+            <div style="height:100%;width:${pct1}%;background:${STAT_COLORS[key]};border-radius:4px;transition:width 0.8s cubic-bezier(0.22,1,0.36,1);"></div>
+          </div>
+          <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="height:100%;width:${pct2}%;background:${STAT_COLORS[key]};border-radius:4px;transition:width 0.8s cubic-bezier(0.22,1,0.36,1);"></div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const total1 = p1.hp+p1.attack+p1.defense+p1.sp_atk+p1.sp_def+p1.speed;
+  const total2 = p2.hp+p2.attack+p2.defense+p2.sp_atk+p2.sp_def+p2.speed;
+  const overall = total1 > total2 ? p1.name : total2 > total1 ? p2.name : 'Tie';
+
+  document.getElementById('content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;">
+      <div style="text-align:center;flex:1;">
+        <img src="${p1.sprite}" style="width:90px;height:90px;image-rendering:pixelated;filter:drop-shadow(0 0 15px rgba(255,215,0,0.2));"/>
+        <div style="font-family:'Press Start 2P',monospace;font-size:0.55em;color:#ffd700;margin-top:6px;">${p1.name}</div>
+        <div style="margin-top:6px;">${types1}</div>
+      </div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:0.8em;color:#e3350d;text-shadow:0 0 15px rgba(227,53,13,0.6);">VS</div>
+      <div style="text-align:center;flex:1;">
+        <img src="${p2.sprite}" style="width:90px;height:90px;image-rendering:pixelated;filter:drop-shadow(0 0 15px rgba(255,215,0,0.2));"/>
+        <div style="font-family:'Press Start 2P',monospace;font-size:0.55em;color:#ffd700;margin-top:6px;">${p2.name}</div>
+        <div style="margin-top:6px;">${types2}</div>
+      </div>
+    </div>
+    <hr class="divider"/>
+    <div class="stats-title">Stat Comparison</div>
+    ${stats}
+    <div style="text-align:center;margin-top:16px;padding:12px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.2);border-radius:8px;">
+      <span style="font-family:'Press Start 2P',monospace;font-size:0.55em;color:#ffd700;">
+        🏆 ${overall === 'Tie' ? "It's a tie!" : overall + ' wins overall!'}
+      </span>
+      <div style="font-size:0.8em;color:rgba(255,255,255,0.4);margin-top:6px;">${p1.name}: ${total1} pts vs ${p2.name}: ${total2} pts</div>
+    </div>`;
+
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('[style*="width:0%"]').forEach(b=>{
+      const target = b.style.width;
+      b.style.width = '0%';
+      setTimeout(()=>{ b.style.width = target; }, 50);
+    });
+  });
+}
 </script>
 </body></html>"""
 
@@ -1079,5 +1184,4 @@ function rematch() {
 if __name__ == "__main__":
     print("\n  🌐 Pokedex + Battle running!")
     print("  Open http://localhost:5000 in your browser\n")
-    import os
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(debug=True)
